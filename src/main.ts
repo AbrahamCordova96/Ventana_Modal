@@ -1,7 +1,15 @@
 import './style.css';
-import { initializeApp } from './app/app';
+import { App } from './app/app';
 
-// Initialize the application when the DOM is fully loaded
-document.addEventListener('DOMContentLoaded', () => {
-  initializeApp();
+document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
+  <div class="container">
+    <h1>Smart Link Organizer</h1>
+    <p>Drag and drop links to organize them intelligently</p>
+    <div id="link-container"></div>
+  </div>
+`;
+
+const app = new App();
+app.init().catch(error => {
+  console.error('Failed to initialize application:', error);
 });

@@ -2,7 +2,7 @@ import Dexie, { Table } from 'dexie';
 import { Link } from '../types/link';
 import { ApiConfig } from '../types/apiConfig';
 
-class LinkDatabase extends Dexie {
+export class Database extends Dexie {
   links!: Table<Link, string>;
   apiConfigs!: Table<ApiConfig, string>;
 
@@ -21,11 +21,7 @@ class LinkDatabase extends Dexie {
   }
 }
 
-export const db = new LinkDatabase();
-
-export function getDatabase() {
-  return db;
-}
+export const db = new Database();
 
 export async function initializeDatabase() {
   try {

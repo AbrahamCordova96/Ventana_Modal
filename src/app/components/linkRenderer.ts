@@ -1,164 +1,142 @@
-import { getAllLinks, searchLinks, deleteLink } from '../data/linkRepository';
-import { showNotification } from '../features/notifications';
-import Sortable from 'sortablejs';
+import { Link } from '../types/link';
+import LinkPreviewHover from './linkPreviewHover';
 
-export async function renderLinks(searchQuery?: string) {
-  const linksContainer = document.getElementById('links-container');
-  if (!linksContainer) return;
-  
-  // Clear the container
-  linksContainer.innerHTML = '';
-  
-  // Get links based on search query
-  const links = searchQuery 
-    ? await searchLinks(searchQuery)
-    : await getAllLinks();
-  
-  if (links.length === 0) {
-    const emptyState = document.createElement('div');
-    emptyState.style.textAlign = 'center';
-    emptyState.style.padding = '20px';
-    emptyState.style.color = 'var(--text-secondary)';
-    
-    if (searchQuery) {
-      emptyState.textContent = `No links found for "${searchQuery}"`;
-    } else {
-      emptyState.textContent = 'No links saved yet. Drag and drop links to get started!';
-    }
-    
-    linksContainer.appendChild(emptyState);
-    return;
-  }
-  
-  // Sort links by creation date (newest first)
-  links.sort((a, b) => {
-    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-  });
-  
-  // Create a link card for each link
-  for (const link of links) {
-    const linkCard = createLinkCard(link);
-    linksContainer.appendChild(linkCard);
-  }
-  
-  // Make the links container sortable
-  Sortable.create(linksContainer, {
-    animation: 150,
-    ghostClass: 'sortable-ghost',
-    chosenClass: 'sortable-chosen',
-    dragClass: 'sortable-drag',
-    onEnd: function(evt) {
-      showNotification('Order updated', 'Link order has been updated.');
-    }
-  });
-}
+export class LinkRenderer {
+  private container: HTMLElement;
+  private previewHover: LinkPreviewHover;
 
-function createLinkCard(link: any): HTMLElement {
-  const card = document.createElement('div');
-  card.className = 'link-card';
-  card.dataset.id = link.id;
-  
-  const title = document.createElement('div');
-  title.className = 'link-title';
-  title.textContent = link.title;
-  
-  const url = document.createElement('div');
-  url.className = 'link-url';
-  url.textContent = link.url;
-  
-  const preview = document.createElement('div');
-  preview.className = 'link-preview';
-  
-  if (link.imageUrl) {
-    const img = document.createElement('img');
-    img.src = link.imageUrl;
-    img.alt = link.title;
-    img.onerror = () => {
-      img.remove();
-      preview.textContent = 'Preview not available';
-    };
-    preview.appendChild(img);
-  } else {
-    preview.textContent = 'Preview not available';
-  }
-  
-  const tags = document.createElement('div');
-  tags.className = 'link-tags';
-  
-  for (const category of link.categories) {
-    const tag = document.createElement('span');
-    tag.className = 'tag';
-    tag.textContent = category;
-    tags.appendChild(tag);
-  }
-  
-  // Add delete button
-  const deleteBtn = document.createElement('button');
-  deleteBtn.className = 'delete-btn';
-  deleteBtn.innerHTML = '&times;';
-  deleteBtn.style.position = 'absolute';
-  deleteBtn.style.top = '8px';
-  deleteBtn.style.right = '8px';
-  deleteBtn.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
-  deleteBtn.style.color = 'white';
-  deleteBtn.style.border = 'none';
-  deleteBtn.style.borderRadius = '50%';
-  deleteBtn.style.width = '24px';
-  deleteBtn.style.height = '24px';
-  deleteBtn.style.display = 'flex';
-  deleteBtn.style.alignItems = 'center';
-  deleteBtn.style.justifyContent = 'center';
-  deleteBtn.style.cursor = 'pointer';
-  deleteBtn.style.opacity = '0';
-  deleteBtn.style.transition = 'opacity 0.2s';
-  
-  card.addEventListener('mouseenter', () => {
-    deleteBtn.style.opacity = '1';
-  });
-  
-  card.addEventListener('mouseleave', () => {
-    deleteBtn.style.opacity = '0';
-  });
-  
-  deleteBtn.addEventListener('click', async (e) => {
-    e.stopPropagation();
-    
-    try {
-      await deleteLink(link.id);
-      card.remove();
-      showNotification('Link deleted', `"${link.title}" has been removed.`);
-    } catch (error) {
-      console.error('Error deleting link:', error);
-      showNotification('Error', 'Failed to delete link.', { type: 'error' });
+  constructor(containerId: string) {
+    const containerElement = document.getElementById(containerId);
+    if (!containerElement) {
+      throw new Error(`Container element with id "${containerId}" not found`);
     }
-  });
-  
-  // Make the card clickable to open the link
-  card.addEventListener('click', () => {
-    window.open(link.url, '_blank');
-  });
-  
-  // Assemble the card
-  card.appendChild(title);
-  card.appendChild(url);
-  card.appendChild(preview);
-  card.appendChild(tags);
-  card.appendChild(deleteBtn);
-  
-  return card;
-}
+    this.container = containerElement;
+    this.previewHover = new LinkPreviewHover();
+  }
 
-// Initialize the links display when the module is loaded
-document.addEventListener('DOMContentLoaded', () => {
-  // Set up search functionality
-  const searchInput = document.querySelector('.search-input') as HTMLInputElement;
-  if (searchInput) {
-    searchInput.addEventListener('input', (e) => {
-      const query = (e.target as HTMLInputElement).value;
-      renderLinks(query);
+  public renderLinks(links: Link[]): void {
+    this.container.innerHTML = '';
+    
+    links.forEach(link => {
+      const linkElement = this.createLinkElement(link);
+      this.container.appendChild(linkElement);
     });
   }
-  
-  // Initial render
-  renderLinks();
-});
+
+  private createLinkElement(link: Link): HTMLElement {
+    const linkElement = document.createElement('div');
+    linkElement.className = 'link-button';
+    linkElement.dataset.url = link.url;
+    linkElement.dataset.id = link.id;
+    
+    // Apply styling to make it look like a button
+    linkElement.style.cssText = `
+      display: inline-block;
+      margin: 8px;
+      padding: 10px 16px;
+      background-color: #f5f5f5;
+      border-radius: 6px;
+      border: 1px solid #ddd;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    `;
+    
+    // Add hover effect
+    linkElement.addEventListener('mouseenter', () => {
+      linkElement.style.backgroundColor = '#e9e9e9';
+      linkElement.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.1)';
+    });
+    
+    linkElement.addEventListener('mouseleave', () => {
+      linkElement.style.backgroundColor = '#f5f5f5';
+      linkElement.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.05)';
+    });
+    
+    // Create icon based on link type
+    const icon = document.createElement('span');
+    icon.className = 'link-icon';
+    icon.style.marginRight = '8px';
+    
+    if (this.isVideoUrl(link.url)) {
+      icon.innerHTML = '🎬'; // Video icon
+    } else if (this.isImageUrl(link.url)) {
+      icon.innerHTML = '🖼️'; // Image icon
+    } else if (this.isDocumentUrl(link.url)) {
+      icon.innerHTML = '📄'; // Document icon
+    } else {
+      icon.innerHTML = '🔗'; // Generic link icon
+    }
+    
+    // Create title element
+    const title = document.createElement('span');
+    title.className = 'link-title';
+    title.textContent = link.title || this.generateTitleFromUrl(link.url);
+    
+    // Assemble the link element
+    linkElement.appendChild(icon);
+    linkElement.appendChild(title);
+    
+    // Add click handler to open the link
+    linkElement.addEventListener('click', (e) => {
+      e.preventDefault();
+      window.open(link.url, '_blank');
+    });
+    
+    // Apply hover preview
+    this.previewHover.applyToLinkElement(linkElement, link);
+    
+    return linkElement;
+  }
+
+  private isVideoUrl(url: string): boolean {
+    const videoPatterns = [
+      /youtube\.com\/watch/i,
+      /youtu\.be\//i,
+      /vimeo\.com\//i,
+      /dailymotion\.com\/video/i,
+      /\.(mp4|webm|ogg)$/i
+    ];
+    
+    return videoPatterns.some(pattern => pattern.test(url));
+  }
+
+  private isImageUrl(url: string): boolean {
+    return /\.(jpe?g|png|gif|svg|webp)$/i.test(url);
+  }
+
+  private isDocumentUrl(url: string): boolean {
+    return /\.(pdf|docx?|xlsx?|pptx?|txt|csv)$/i.test(url);
+  }
+
+  private generateTitleFromUrl(url: string): string {
+    try {
+      const urlObj = new URL(url);
+      let title = urlObj.hostname.replace(/^www\./, '');
+      
+      // Add path if it's not just the root
+      if (urlObj.pathname && urlObj.pathname !== '/') {
+        // Clean up the path and limit length
+        const path = urlObj.pathname
+          .replace(/\/$/, '')
+          .split('/')
+          .pop() || '';
+          
+        if (path) {
+          title += ` - ${decodeURIComponent(path)}`;
+        }
+      }
+      
+      return title;
+    } catch (e) {
+      // If URL parsing fails, return a portion of the URL
+      return url.substring(0, 50) + (url.length > 50 ? '...' : '');
+    }
+  }
+}
+
+export default LinkRenderer;

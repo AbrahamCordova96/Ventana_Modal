@@ -1,30 +1,57 @@
-import { createModal } from './components/modal';
-import { setupDragAndDrop } from './features/dragAndDrop';
-import { setupKeyboardShortcuts } from './features/keyboardShortcuts';
 import { initializeDatabase } from './data/database';
-import { setupNotifications } from './features/notifications';
+import { LinkPreview } from './features/linkPreview';
+import { LinkRepository } from './data/linkRepository';
 
-export function initializeApp() {
-  // Initialize the database
-  initializeDatabase();
-  
-  // Create the modal component
-  const modal = createModal({
-    title: 'Smart Link Organizer',
-    position: { x: window.innerWidth / 2 - 200, y: window.innerHeight / 2 - 300 },
-    size: { width: 400, height: 600 },
-    alwaysOnTop: true
-  });
-  
-  // Add the modal to the DOM
-  document.getElementById('app')?.appendChild(modal);
-  
-  // Setup drag and drop functionality
-  setupDragAndDrop();
-  
-  // Setup keyboard shortcuts
-  setupKeyboardShortcuts();
-  
-  // Setup notifications system
-  setupNotifications();
+export class App {
+  private linkRepository: LinkRepository;
+  private linkPreview: LinkPreview | null = null;
+
+  constructor() {
+    this.linkRepository = new LinkRepository();
+  }
+
+  public async init(): Promise<void> {
+    try {
+      // Initialize the database
+      await initializeDatabase();
+      
+      // Initialize the link container if it doesn't exist
+      this.ensureLinkContainer();
+      
+      // Initialize the link preview feature
+      this.linkPreview = new LinkPreview('link-container', this.linkRepository);
+      
+      console.log('Smart Link Organizer initialized successfully');
+    } catch (error) {
+      console.error('Failed to initialize app:', error);
+    }
+  }
+
+  private ensureLinkContainer(): void {
+    let container = document.getElementById('link-container');
+    
+    if (!container) {
+      container = document.createElement('div');
+      container.id = 'link-container';
+      container.style.cssText = `
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 10px;
+        margin: 20px 0;
+        padding: 10px;
+        border-radius: 8px;
+        background-color: rgba(0, 0, 0, 0.05);
+      `;
+      
+      const appContainer = document.getElementById('app');
+      if (appContainer) {
+        appContainer.appendChild(container);
+      } else {
+        document.body.appendChild(container);
+      }
+    }
+  }
 }
+
+export default App;

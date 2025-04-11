@@ -1,110 +1,85 @@
-// Simple implementation without relying on Natural.js
-// since it has Node.js dependencies that don't work in the browser
+import { Link } from '../types/link';
 
-// Predefined categories for classification
-const predefinedCategories = [
-  'Technology', 'Science', 'Health', 'Business', 'Entertainment',
-  'Sports', 'Politics', 'Education', 'Travel', 'Food',
-  'Art', 'Fashion', 'Environment', 'Finance', 'Gaming'
-];
-
-// Keywords associated with each category
-const categoryKeywords: Record<string, string[]> = {
-  'Technology': ['tech', 'software', 'hardware', 'programming', 'code', 'developer', 'app', 'digital', 'computer', 'internet', 'web', 'mobile', 'ai', 'artificial intelligence', 'machine learning'],
-  'Science': ['science', 'research', 'study', 'experiment', 'discovery', 'physics', 'chemistry', 'biology', 'astronomy', 'space', 'laboratory', 'scientist'],
-  'Health': ['health', 'medical', 'medicine', 'doctor', 'hospital', 'wellness', 'fitness', 'diet', 'exercise', 'nutrition', 'disease', 'treatment', 'therapy'],
-  'Business': ['business', 'company', 'corporate', 'startup', 'entrepreneur', 'market', 'industry', 'economy', 'finance', 'investment', 'stock', 'trade', 'commerce'],
-  'Entertainment': ['entertainment', 'movie', 'film', 'tv', 'television', 'show', 'celebrity', 'actor', 'actress', 'music', 'concert', 'festival', 'performance'],
-  'Sports': ['sports', 'game', 'player', 'team', 'coach', 'athlete', 'championship', 'tournament', 'match', 'competition', 'football', 'basketball', 'soccer', 'baseball', 'tennis'],
-  'Politics': ['politics', 'government', 'policy', 'election', 'president', 'minister', 'parliament', 'congress', 'senate', 'democrat', 'republican', 'law', 'legislation'],
-  'Education': ['education', 'school', 'university', 'college', 'student', 'teacher', 'professor', 'academic', 'learning', 'course', 'degree', 'study', 'classroom'],
-  'Travel': ['travel', 'tourism', 'vacation', 'holiday', 'destination', 'hotel', 'resort', 'flight', 'airline', 'tour', 'trip', 'adventure', 'explore', 'journey'],
-  'Food': ['food', 'recipe', 'cooking', 'chef', 'restaurant', 'cuisine', 'meal', 'dish', 'ingredient', 'baking', 'dessert', 'drink', 'beverage', 'taste', 'flavor'],
-  'Art': ['art', 'artist', 'painting', 'sculpture', 'gallery', 'museum', 'exhibition', 'creative', 'design', 'drawing', 'photography', 'illustration', 'visual'],
-  'Fashion': ['fashion', 'style', 'clothing', 'dress', 'outfit', 'designer', 'model', 'trend', 'collection', 'runway', 'brand', 'accessory', 'textile', 'wear'],
-  'Environment': ['environment', 'climate', 'green', 'sustainable', 'eco', 'nature', 'conservation', 'renewable', 'pollution', 'recycle', 'biodiversity', 'earth', 'planet'],
-  'Finance': ['finance', 'money', 'banking', 'investment', 'stock', 'market', 'fund', 'asset', 'wealth', 'budget', 'tax', 'loan', 'credit', 'debt', 'currency'],
-  'Gaming': ['gaming', 'game', 'player', 'console', 'pc', 'video game', 'esports', 'multiplayer', 'strategy', 'rpg', 'fps', 'mmorpg', 'developer', 'studio']
-};
-
-// Simple tokenization function
-function tokenize(text: string): string[] {
-  return text.toLowerCase()
-    .replace(/[^\w\s]/g, ' ')
-    .split(/\s+/)
-    .filter(word => word.length > 0);
-}
-
-export async function categorizeContent(url: string, title: string, description: string): Promise<string[]> {
-  try {
-    // Combine title and description for analysis
-    const content = `${title} ${description}`;
-    
-    // Calculate scores for each category
-    const categoryScores: Record<string, number> = {};
-    
-    for (const category of predefinedCategories) {
-      const keywords = categoryKeywords[category];
-      let score = 0;
-      
-      // Tokenize the content
-      const tokens = tokenize(content);
-      
-      for (const keyword of keywords) {
-        // Check for multi-word keywords
-        if (keyword.includes(' ')) {
-          if (content.toLowerCase().includes(keyword.toLowerCase())) {
-            score += 2; // Higher score for multi-word matches
-          }
-        } else {
-          // Check for single word keywords
-          if (tokens.includes(keyword.toLowerCase())) {
-            score += 1;
-          }
-        }
-      }
-      
-      // Check if the URL contains category-related terms
-      for (const keyword of keywords) {
-        if (url.toLowerCase().includes(keyword.toLowerCase())) {
-          score += 0.5;
-        }
-      }
-      
-      categoryScores[category] = score;
-    }
-    
-    // Sort categories by score
-    const sortedCategories = Object.entries(categoryScores)
-      .sort((a, b) => b[1] - a[1])
-      .filter(([_, score]) => score > 0)
-      .map(([category]) => category);
-    
-    // Return top 3 categories, or fewer if not enough matches
-    return sortedCategories.slice(0, 3).length > 0 
-      ? sortedCategories.slice(0, 3) 
-      : ['Uncategorized'];
-  } catch (error) {
-    console.error('Error categorizing content:', error);
-    return ['Uncategorized'];
-  }
-}
-
-export function clusterByTopic(links: any[]): Record<string, any[]> {
-  // Group links by their categories
-  const clusters: Record<string, any[]> = {};
+// Simple function to cluster links by topic
+// In a real implementation, this would use more sophisticated NLP techniques
+export function clusterByTopic(links: Link[]): Record<string, Link[]> {
+  const clusters: Record<string, Link[]> = {};
   
-  for (const link of links) {
-    const categories = link.categories || ['Uncategorized'];
-    
-    for (const category of categories) {
+  // First, group by existing categories
+  links.forEach(link => {
+    link.categories.forEach(category => {
       if (!clusters[category]) {
         clusters[category] = [];
       }
       
-      clusters[category].push(link);
-    }
-  }
+      // Only add the link if it's not already in this category cluster
+      if (!clusters[category].some(l => l.id === link.id)) {
+        clusters[category].push(link);
+      }
+    });
+  });
+  
+  // For links without categories or in "Uncategorized", try to infer categories
+  const uncategorizedLinks = links.filter(link => 
+    link.categories.length === 0 || 
+    (link.categories.length === 1 && link.categories[0] === 'Uncategorized')
+  );
+  
+  uncategorizedLinks.forEach(link => {
+    const inferredCategories = inferCategories(link);
+    
+    inferredCategories.forEach(category => {
+      if (!clusters[category]) {
+        clusters[category] = [];
+      }
+      
+      // Only add the link if it's not already in this category cluster
+      if (!clusters[category].some(l => l.id === link.id)) {
+        clusters[category].push(link);
+      }
+    });
+  });
   
   return clusters;
+}
+
+// Simple keyword-based category inference
+// In a real implementation, this would use more sophisticated NLP or ML techniques
+function inferCategories(link: Link): string[] {
+  const categories: string[] = [];
+  const text = `${link.title} ${link.description} ${link.url}`.toLowerCase();
+  
+  // Define some simple keyword-based rules
+  const categoryRules: Record<string, RegExp[]> = {
+    'Technology': [/tech/i, /programming/i, /code/i, /software/i, /hardware/i, /computer/i],
+    'News': [/news/i, /article/i, /blog/i, /post/i],
+    'Social Media': [/facebook/i, /twitter/i, /instagram/i, /linkedin/i, /social/i],
+    'Shopping': [/shop/i, /store/i, /buy/i, /amazon/i, /ebay/i, /product/i],
+    'Video': [/youtube/i, /vimeo/i, /video/i, /watch/i, /stream/i],
+    'Education': [/learn/i, /course/i, /education/i, /tutorial/i, /university/i, /school/i],
+    'Entertainment': [/entertainment/i, /movie/i, /music/i, /game/i, /play/i],
+    'Travel': [/travel/i, /vacation/i, /hotel/i, /flight/i, /booking/i],
+    'Food': [/food/i, /recipe/i, /restaurant/i, /cook/i, /meal/i],
+    'Health': [/health/i, /fitness/i, /exercise/i, /medical/i, /doctor/i],
+  };
+  
+  // Check each category's rules against the text
+  Object.entries(categoryRules).forEach(([category, patterns]) => {
+    if (patterns.some(pattern => pattern.test(text))) {
+      categories.push(category);
+    }
+  });
+  
+  // If no categories were inferred, keep it as "Uncategorized"
+  if (categories.length === 0) {
+    categories.push('Uncategorized');
+  }
+  
+  return categories;
+}
+
+export async function categorizeLink(link: Link): Promise<string[]> {
+  // In a real implementation, this might call an AI service
+  // For now, we'll use our simple inference function
+  return inferCategories(link);
 }
