@@ -1,0 +1,25 @@
+{
+  "name": "smart-link-organizer",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "dexie": "^3.2.4",
+    "linkify-it": "^4.0.1",
+    "marked": "^9.1.0",
+    "nanoid": "^5.0.1",
+    "sortablejs": "^1.15.0"
+  },
+  "devDependencies": {
+    "@types/linkify-it": "^3.0.3",
+    "@types/marked": "^5.0.1",
+    "@types/sortablejs": "^1.15.1",
+    "typescript": "^5.5.3",
+    "vite": "^5.4.8"
+  }
+}
